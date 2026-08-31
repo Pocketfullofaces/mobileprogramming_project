@@ -10,21 +10,17 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Strava',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: const Center(
-        child: Text(
-          'Home',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+    return const Scaffold(
+      backgroundColor: Color(0xFF121210),
+      body: SafeArea(
+        child: Center(
+          child: Text(
+            'Home',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
