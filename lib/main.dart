@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'layar/home_screen.dart';
+import 'layar/profile_page.dart';
 
 void main() {
   runApp(const StravaApp());
