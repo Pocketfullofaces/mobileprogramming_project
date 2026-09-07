@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'layar/home_screen.dart';
+import 'layar/login_screen.dart';
 import 'layar/profile_page.dart';
 
 void main() {
@@ -36,7 +36,7 @@ class StravaApp extends StatelessWidget {
           seedColor: const Color(0xFFFC4C02),
           ),
       ),
-      home: const MainScreen(),
+        home: const LoginScreen(),
     );
   }
 // }
