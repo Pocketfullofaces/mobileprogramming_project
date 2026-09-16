@@ -8,8 +8,6 @@ class GroupsScreen extends StatefulWidget {
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
-  // Data dummy, langsung di dalam state biar toggle join/gabung/ikut
-  // kelihatan interaktif walau belum nyambung backend.
   final List<Map<String, dynamic>> _challenges = [
     {
       'title': '50km Run Challenge',
@@ -117,8 +115,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  // ---------- Challenges ----------
-
   Widget _buildChallengesTab() {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
@@ -189,8 +185,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  // ---------- Clubs ----------
-
   Widget _buildClubsTab() {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
@@ -254,8 +248,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
       },
     );
   }
-
-  // ---------- Events ----------
 
   Widget _buildEventsTab() {
     return ListView.builder(
