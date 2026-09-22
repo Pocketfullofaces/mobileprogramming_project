@@ -16,7 +16,7 @@ class StravaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Strava',
       theme: ThemeData(
-        useMaterial3: true,
+        useMaterial3: true,g
         // This is the theme of your application.
         //
         // TRY THIS: Try running your application with "flutter run". You'll see
