@@ -231,3 +231,132 @@ class _ProfileHeader extends StatelessWidget {
     );
   }
 }
+
+class _FollowCounts extends StatelessWidget {
+  const _FollowCounts({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    final db = SocialService.instance.db;
+    return Row(
+      children: [
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: db.collection('users').doc(uid).collection('followers').snapshots(),
+          builder: (_, snap) => Text(
+            '${snap.data?.docs.length ?? 0} followers',
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+        const Text('  •  ', style: TextStyle(color: Colors.white70)),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: db.collection('users').doc(uid).collection('following').snapshots(),
+          builder: (_, snap) => Text(
+            '${snap.data?.docs.length ?? 0} following',
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.profile, required this.radius});
+
+  final Map<String, dynamic> profile;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = _decodePhoto(profile['photoData']);
+    final name =
+        profile['displayName'] as String? ??
+        profile['username'] as String? ??
+        'User';
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFF425866),
+      backgroundImage: photo == null ? null : MemoryImage(photo),
+      child: photo == null
+          ? Text(
+              name.substring(0, 1).toUpperCase(),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: radius,
+                fontWeight: FontWeight.w800,
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _OutlinePill extends StatelessWidget {
+  const _OutlinePill({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 50,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: _line),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+      ),
+    );
+  }
+}
+
+class _ProfileSectionTabs extends StatelessWidget {
+  const _ProfileSectionTabs({required this.onStats});
+
+  final VoidCallback onStats;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _line)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: _ProfileTab(
+              icon: Icons.insert_chart,
+              label: 'Progress',
+              active: true,
+            ),
+          ),
+          const Expanded(
+            child: _ProfileTab(
+              icon: Icons.timeline,
+              label: 'Activities',
+              active: false,
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: onStats,
+              child: const _ProfileTab(
+                icon: Icons.menu,
+                label: 'Statistics',
+                active: false,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
