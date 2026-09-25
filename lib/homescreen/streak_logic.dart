@@ -1,4 +1,3 @@
-// UTC calendar values avoid daylight-saving gaps while using local day labels.
 int calculateStreak(Iterable<DateTime> activities, DateTime now) {
   DateTime day(DateTime date) => DateTime.utc(date.year, date.month, date.day);
   final days = activities.map((d) => day(d.toLocal())).toSet();
