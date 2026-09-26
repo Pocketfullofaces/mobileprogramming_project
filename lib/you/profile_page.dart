@@ -360,3 +360,195 @@ class _ProfileSectionTabs extends StatelessWidget {
     );
   }
 }
+
+class _ProfileTab extends StatelessWidget {
+  const _ProfileTab({
+    required this.icon,
+    required this.label,
+    required this.active,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: active ? Colors.white : Colors.white54, size: 34),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.white54,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 4,
+          width: active ? 92 : 0,
+          decoration: BoxDecoration(
+            color: _orange,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.stats});
+
+  final _RunStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoundedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: _orange),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.directions_run, color: _orange),
+                  SizedBox(width: 8),
+                  Text(
+                    'Run',
+                    style: TextStyle(color: _orange, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 26),
+          const Text(
+            'Jul 20 - Jul 26, 2026',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _SmallMetric(label: 'Distance', value: '${stats.weekKm.toStringAsFixed(0)} km'),
+              _SmallMetric(label: 'Time', value: '${stats.weekMinutes}m'),
+              const _SmallMetric(label: 'Elev Gain', value: '0 m'),
+            ],
+          ),
+          const SizedBox(height: 26),
+          const Text('Past 12 weeks', style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 14),
+          SizedBox(height: 160, child: _ProgressChart(points: stats.weeklyKm)),
+        ],
+      ),
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  const _StreakCard({required this.dates, required this.onTap});
+
+  final List<DateTime> dates;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final weeks = calculateStreak(dates, DateTime.now()) ~/ 7;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: _RoundedCard(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Streak',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Icon(Icons.local_fire_department, color: Colors.white70, size: 72),
+                      const SizedBox(width: 12),
+                      Text(
+                        '$weeks\nWeeks',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 26,
+                          height: 1.05,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Row(
+                  children: [
+                    Text('This month', style: TextStyle(color: Colors.white70)),
+                    Icon(Icons.chevron_right, color: Colors.white70),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _MiniCalendar(dates: dates),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatisticsPreview extends StatelessWidget {
+  const _StatisticsPreview({required this.stats});
+
+  final _RunStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoundedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Statistics',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _StatLine(label: 'Runs', value: '${stats.runs}'),
+          _StatLine(label: 'Time', value: '${stats.totalHours}h'),
+          _StatLine(label: 'Distance', value: '${stats.totalKm.toStringAsFixed(0)} km'),
+        ],
+      ),
+    );
+  }
+}
