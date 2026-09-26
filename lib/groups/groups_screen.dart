@@ -327,3 +327,215 @@ class _TabButton extends StatelessWidget {
     );
   }
 }
+
+class _ChallengesView extends StatelessWidget {
+  const _ChallengesView({
+    required this.genres,
+    required this.selectedGenre,
+    required this.challenges,
+    required this.onGenreChanged,
+    required this.onJoin,
+  });
+
+  final List<(String, IconData)> genres;
+  final String selectedGenre;
+  final List<ChallengeItem> challenges;
+  final ValueChanged<String> onGenreChanged;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = challenges
+        .where((challenge) => challenge.genre == selectedGenre)
+        .toList();
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        SizedBox(
+          height: 68,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) {
+              final item = genres[index];
+              final active = item.$1 == selectedGenre;
+              return ChoiceChip(
+                selected: active,
+                label: Text(item.$1),
+                avatar: Icon(item.$2, size: 18),
+                onSelected: (_) => onGenreChanged(item.$1),
+                selectedColor: const Color(0xFF26211E),
+                backgroundColor: _bg,
+                labelStyle: TextStyle(color: active ? Colors.white : Colors.white70),
+                side: BorderSide(color: active ? _orange : Colors.white38),
+              );
+            },
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemCount: genres.length,
+          ),
+        ),
+        if (filtered.isNotEmpty)
+          _FeaturedChallenge(challenge: filtered.first, onJoin: onJoin),
+        const _GroupChallengePromo(),
+        const _SectionTitle(title: "What's New", subtitle: 'Find your next challenge'),
+        SizedBox(
+          height: 268,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) {
+              final challenge = filtered.isEmpty ? challenges[index] : filtered[index % filtered.length];
+              return _ChallengeCard(challenge: challenge, onJoin: onJoin);
+            },
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemCount: filtered.isEmpty ? challenges.length : filtered.length,
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
+
+class _FeaturedChallenge extends StatelessWidget {
+  const _FeaturedChallenge({required this.challenge, required this.onJoin});
+
+  final ChallengeItem challenge;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _HeroBand(
+          icon: Icons.directions_run,
+          colors: [challenge.accent, const Color(0xFF111111)],
+          label: challenge.genre,
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _BadgeIcon(color: challenge.accent, icon: challenge.icon),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          challenge.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${challenge.target}\n${challenge.date}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              _OrangeButton(label: 'Join', onPressed: () => onJoin(challenge.title)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GroupChallengePromo extends StatelessWidget {
+  const _GroupChallengePromo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _surface,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.local_fire_department_outlined, color: _orange),
+              SizedBox(width: 10),
+              Text(
+                'Group Challenges',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Start a custom challenge with friends',
+            style: TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 18),
+          _OrangeButton(label: 'Start Your Free Trial', onPressed: () {}),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChallengeCard extends StatelessWidget {
+  const _ChallengeCard({required this.challenge, required this.onJoin});
+
+  final ChallengeItem challenge;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 280,
+      child: Card(
+        color: _surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _BadgeIcon(color: challenge.accent, icon: challenge.icon),
+              const Spacer(),
+              Text(
+                challenge.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${challenge.target}\n${challenge.date}',
+                style: const TextStyle(color: Colors.white70, height: 1.35),
+              ),
+              const SizedBox(height: 16),
+              _OrangeButton(label: 'Join', onPressed: () => onJoin(challenge.title)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
