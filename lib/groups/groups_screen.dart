@@ -539,3 +539,163 @@ class _ChallengeCard extends StatelessWidget {
     );
   }
 }
+
+
+class _ClubsView extends StatelessWidget {
+  const _ClubsView({
+    required this.clubs,
+    required this.onCreate,
+    required this.onJoin,
+  });
+
+  final List<ClubItem> clubs;
+  final VoidCallback onCreate;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const _HeroBand(
+          icon: Icons.groups,
+          colors: [Color(0xFF365E54), Color(0xFF111111)],
+          label: 'Clubs',
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Create Your Own Strava Club',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Give your community a motivating home base.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 24),
+              _OrangeButton(label: 'Get Started', onPressed: onCreate),
+              const SizedBox(height: 10),
+              const _BubbleNote(text: 'New! Create and manage your club right from the app.'),
+              const SizedBox(height: 28),
+              const Center(
+                child: Text(
+                  'Learn More',
+                  style: TextStyle(color: _orange, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const _HeroBand(
+          icon: Icons.landscape,
+          colors: [Color(0xFFB14A1A), Color(0xFFFF8A3D)],
+          label: 'Community',
+        ),
+        for (final club in clubs)
+          _ClubCard(club: club, onJoin: onJoin),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
+
+class _ClubCard extends StatelessWidget {
+  const _ClubCard({required this.club, required this.onJoin});
+
+  final ClubItem club;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _BadgeIcon(color: club.accent, icon: Icons.groups, size: 58),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      club.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${club.location}\n${_formatNumber(club.members)} Athletes',
+                      style: const TextStyle(color: Colors.white70, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _OrangeButton(label: 'Join', onPressed: () => onJoin(club.name)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventsView extends StatelessWidget {
+  const _EventsView({
+    required this.events,
+    required this.onCreate,
+    required this.onJoin,
+  });
+
+  final List<EventItem> events;
+  final VoidCallback onCreate;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final localEvents = events.where((event) => event.range == null).toList();
+    final races = events.where((event) => event.range != null).toList();
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        _SectionHeader(title: 'Local Club Events', action: 'Create', onAction: onCreate),
+        SizedBox(
+          height: 126,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) => _EventTile(event: localEvents[index], onJoin: onJoin),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemCount: localEvents.length,
+          ),
+        ),
+        const Divider(height: 32, color: Color(0xFF2B2B2A)),
+        const _SectionHeader(title: 'Races', action: 'View all'),
+        SizedBox(
+          height: 430,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) => _RaceCard(event: races[index], onJoin: onJoin),
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemCount: races.length,
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
