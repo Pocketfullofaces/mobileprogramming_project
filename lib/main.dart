@@ -125,3 +125,4 @@ class StravaApp extends StatelessWidget {
 //     );
 //   }
 }
+
