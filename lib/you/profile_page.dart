@@ -876,3 +876,239 @@ class _PersonTile extends StatelessWidget {
     );
   }
 }
+
+class _EditField extends StatelessWidget {
+  const _EditField({
+    required this.controller,
+    required this.label,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+}
+
+class _StatisticsPage extends StatelessWidget {
+  const _StatisticsPage({required this.stats});
+
+  final _RunStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        title: const Text(
+          ' Statistics',
+          style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: ListView(
+        children: [
+          Container(
+            color: _bg,
+            padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
+            child: const Column(
+              children: [
+                Icon(Icons.directions_run, color: Colors.white, size: 58),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: 52,
+                  height: 5,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _orange,
+                      borderRadius: BorderRadius.all(Radius.circular(99)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _StatsBlock(
+            title: 'AVG WEEKLY ACTIVITY',
+            rows: [
+              ('Runs', '${stats.avgWeeklyRuns}'),
+              ('Time', '${stats.avgWeeklyHours}h'),
+              ('Distance', '${stats.avgWeeklyKm.toStringAsFixed(0)} km'),
+            ],
+          ),
+          _StatsBlock(
+            title: 'YEAR-TO-DATE',
+            rows: [
+              ('Runs', '${stats.runs}'),
+              ('Time', '${stats.totalHours}h'),
+              ('Distance', '${stats.totalKm.toStringAsFixed(0)} km'),
+              ('Elevation Gain', '0 m'),
+            ],
+          ),
+          _StatsBlock(
+            title: 'ALL TIME',
+            rows: [
+              ('Runs', '${stats.runs}'),
+              ('Distance', '${stats.totalKm.toStringAsFixed(0)} km'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsBlock extends StatelessWidget {
+  const _StatsBlock({required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+            ),
+          ),
+        ),
+        Container(
+          color: _bg,
+          child: Column(
+            children: [
+              for (final row in rows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+                  child: _StatLine(label: row.$1, value: row.$2, large: true),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StreakSheet extends StatelessWidget {
+  const _StreakSheet({required this.dates});
+
+  final List<DateTime> dates;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final weeks = calculateStreak(dates, now) ~/ 7;
+    return DraggableScrollableSheet(
+      initialChildSize: .76,
+      minChildSize: .42,
+      maxChildSize: .92,
+      builder: (context, controller) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(
+                child: Container(
+                  width: 76,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 44),
+              Text(
+                _monthTitle(now),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 26),
+              Row(
+                children: [
+                  _StreakMetric(title: 'Your Streak', value: '$weeks Weeks'),
+                  const SizedBox(width: 44),
+                  _StreakMetric(title: 'Streak Activities', value: '${dates.length}'),
+                ],
+              ),
+              const SizedBox(height: 34),
+              _FullCalendar(dates: dates, month: now),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StreakMetric extends StatelessWidget {
+  const _StreakMetric({required this.title, required this.value});
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.white70)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundedCard extends StatelessWidget {
+  const _RoundedCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: child,
+    );
+  }
+}
