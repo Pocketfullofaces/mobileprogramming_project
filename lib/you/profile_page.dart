@@ -552,3 +552,563 @@ class _StatisticsPreview extends StatelessWidget {
     );
   }
 }
+
+class EditProfilePage extends StatefulWidget {
+  const EditProfilePage({super.key, required this.initialProfile});
+
+  final Map<String, dynamic> initialProfile;
+
+  @override
+  State<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  late final TextEditingController _name;
+  late final TextEditingController _country;
+  late final TextEditingController _city;
+  late final TextEditingController _bio;
+  late final TextEditingController _birthDate;
+  String _gender = 'Prefer not to say';
+  Uint8List? _pickedPhoto;
+  bool _removePhoto = false;
+  bool _saving = false;
+  bool _dirty = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(
+      text:
+          widget.initialProfile['displayName'] as String? ??
+          widget.initialProfile['username'] as String? ??
+          '',
+    );
+    _country = TextEditingController(
+      text: widget.initialProfile['country'] as String? ?? '',
+    );
+    _city = TextEditingController(
+      text: widget.initialProfile['city'] as String? ?? '',
+    );
+    _bio = TextEditingController(text: widget.initialProfile['bio'] as String? ?? '');
+    _birthDate = TextEditingController(
+      text: widget.initialProfile['birthDate'] as String? ?? '',
+    );
+    _gender =
+        widget.initialProfile['gender'] as String? ?? 'Prefer not to say';
+    for (final controller in [_name, _country, _city, _bio, _birthDate]) {
+      controller.addListener(() => setState(() => _dirty = true));
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _country.dispose();
+    _city.dispose();
+    _bio.dispose();
+    _birthDate.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 900,
+      imageQuality: 55,
+    );
+    if (image == null) return;
+    final bytes = await image.readAsBytes();
+    if (bytes.length > 600 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto maksimal sekitar 600 KB.')),
+      );
+      return;
+    }
+    setState(() {
+      _pickedPhoto = bytes;
+      _removePhoto = false;
+      _dirty = true;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await SocialService.instance.updateProfile(
+        displayName: _name.text,
+        country: _country.text,
+        city: _city.text,
+        bio: _bio.text,
+        birthDate: _birthDate.text,
+        gender: _gender,
+        photo: _pickedPhoto,
+        removePhoto: _removePhoto,
+      );
+      if (!mounted) return;
+      setState(() => _dirty = false);
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e))),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<bool> _confirmExit() async {
+    if (!_dirty || _saving) return true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text('Simpan perubahan profile sebelum keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'discard'),
+            child: const Text('Discard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'save'),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result == 'save') {
+      await _save();
+      return false;
+    }
+    return result == 'discard';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final originalPhoto = _decodePhoto(widget.initialProfile['photoData']);
+    final shownPhoto = _pickedPhoto ?? (_removePhoto ? null : originalPhoto);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmExit() && context.mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
+        backgroundColor: _bg,
+        appBar: AppBar(
+          title: const Text('Edit Profile'),
+          backgroundColor: _bg,
+          actions: [
+            TextButton(
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving...' : 'Save'),
+            ),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Center(
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 58,
+                    backgroundColor: const Color(0xFF425866),
+                    backgroundImage: shownPhoto == null ? null : MemoryImage(shownPhoto),
+                    child: shownPhoto == null
+                        ? const Icon(Icons.person, color: Colors.white, size: 64)
+                        : null,
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: IconButton.filled(
+                      onPressed: _pickPhoto,
+                      icon: const Icon(Icons.camera_alt),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (shownPhoto != null)
+              TextButton(
+                onPressed: () => setState(() {
+                  _pickedPhoto = null;
+                  _removePhoto = true;
+                  _dirty = true;
+                }),
+                child: const Text('Remove photo'),
+              ),
+            const SizedBox(height: 22),
+            _EditField(controller: _name, label: 'Nama akun'),
+            _EditField(controller: _country, label: 'Negara'),
+            _EditField(controller: _city, label: 'Kota'),
+            _EditField(controller: _bio, label: 'Bio', maxLines: 3),
+            _EditField(controller: _birthDate, label: 'Tanggal lahir'),
+            DropdownButtonFormField<String>(
+              initialValue: _gender,
+              decoration: const InputDecoration(labelText: 'Gender'),
+              items: const ['Man', 'Woman', 'Prefer not to say']
+                  .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _gender = value ?? 'Prefer not to say';
+                _dirty = true;
+              }),
+            ),
+            const SizedBox(height: 28),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Saving...' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PeopleScreen extends StatelessWidget {
+  const _PeopleScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final service = SocialService.instance;
+    final currentUid = service.auth.currentUser?.uid;
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        title: const Text('Find People'),
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: service.db
+            .collection('users')
+            .orderBy('usernameLowercase')
+            .limit(50)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text(friendlyError(snapshot.error!)));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final users = snapshot.data!.docs
+              .where((doc) => doc.id != currentUid)
+              .toList();
+          if (users.isEmpty) {
+            return const Center(
+              child: Text(
+                'Belum ada akun lain.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(20),
+            itemCount: users.length,
+            separatorBuilder: (_, _) => const Divider(color: _line),
+            itemBuilder: (context, index) {
+              final doc = users[index];
+              final data = doc.data();
+              return _PersonTile(targetUid: doc.id, profile: data);
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PersonTile extends StatelessWidget {
+  const _PersonTile({required this.targetUid, required this.profile});
+
+  final String targetUid;
+  final Map<String, dynamic> profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final service = SocialService.instance;
+    final uid = service.auth.currentUser?.uid;
+    final name =
+        profile['displayName'] as String? ??
+        profile['username'] as String? ??
+        'User';
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: _ProfileAvatar(profile: profile, radius: 24),
+      title: Text(
+        name,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        '@${profile['username'] ?? name}',
+        style: const TextStyle(color: Colors.white60),
+      ),
+      trailing: uid == null
+          ? null
+          : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: service.db
+                  .collection('users')
+                  .doc(uid)
+                  .collection('following')
+                  .doc(targetUid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final following = snapshot.data?.exists ?? false;
+                return OutlinedButton(
+                  onPressed: () async {
+                    try {
+                      await service.follow(targetUid, following);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(friendlyError(e))),
+                      );
+                    }
+                  },
+                  child: Text(following ? 'Following' : 'Follow'),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _EditField extends StatelessWidget {
+  const _EditField({
+    required this.controller,
+    required this.label,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+}
+
+class _StatisticsPage extends StatelessWidget {
+  const _StatisticsPage({required this.stats});
+
+  final _RunStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: _bg,
+        title: const Text(
+          ' Statistics',
+          style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900),
+        ),
+      ),
+      body: ListView(
+        children: [
+          Container(
+            color: _bg,
+            padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
+            child: const Column(
+              children: [
+                Icon(Icons.directions_run, color: Colors.white, size: 58),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: 52,
+                  height: 5,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _orange,
+                      borderRadius: BorderRadius.all(Radius.circular(99)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _StatsBlock(
+            title: 'AVG WEEKLY ACTIVITY',
+            rows: [
+              ('Runs', '${stats.avgWeeklyRuns}'),
+              ('Time', '${stats.avgWeeklyHours}h'),
+              ('Distance', '${stats.avgWeeklyKm.toStringAsFixed(0)} km'),
+            ],
+          ),
+          _StatsBlock(
+            title: 'YEAR-TO-DATE',
+            rows: [
+              ('Runs', '${stats.runs}'),
+              ('Time', '${stats.totalHours}h'),
+              ('Distance', '${stats.totalKm.toStringAsFixed(0)} km'),
+              ('Elevation Gain', '0 m'),
+            ],
+          ),
+          _StatsBlock(
+            title: 'ALL TIME',
+            rows: [
+              ('Runs', '${stats.runs}'),
+              ('Distance', '${stats.totalKm.toStringAsFixed(0)} km'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsBlock extends StatelessWidget {
+  const _StatsBlock({required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+            ),
+          ),
+        ),
+        Container(
+          color: _bg,
+          child: Column(
+            children: [
+              for (final row in rows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
+                  child: _StatLine(label: row.$1, value: row.$2, large: true),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StreakSheet extends StatelessWidget {
+  const _StreakSheet({required this.dates});
+
+  final List<DateTime> dates;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final weeks = calculateStreak(dates, now) ~/ 7;
+    return DraggableScrollableSheet(
+      initialChildSize: .76,
+      minChildSize: .42,
+      maxChildSize: .92,
+      builder: (context, controller) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(
+                child: Container(
+                  width: 76,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 44),
+              Text(
+                _monthTitle(now),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 26),
+              Row(
+                children: [
+                  _StreakMetric(title: 'Your Streak', value: '$weeks Weeks'),
+                  const SizedBox(width: 44),
+                  _StreakMetric(title: 'Streak Activities', value: '${dates.length}'),
+                ],
+              ),
+              const SizedBox(height: 34),
+              _FullCalendar(dates: dates, month: now),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StreakMetric extends StatelessWidget {
+  const _StreakMetric({required this.title, required this.value});
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.white70)),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundedCard extends StatelessWidget {
+  const _RoundedCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: child,
+    );
+  }
+}

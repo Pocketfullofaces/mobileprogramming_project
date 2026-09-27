@@ -539,3 +539,748 @@ class _ChallengeCard extends StatelessWidget {
     );
   }
 }
+
+
+class _ClubsView extends StatelessWidget {
+  const _ClubsView({
+    required this.clubs,
+    required this.onCreate,
+    required this.onJoin,
+  });
+
+  final List<ClubItem> clubs;
+  final VoidCallback onCreate;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const _HeroBand(
+          icon: Icons.groups,
+          colors: [Color(0xFF365E54), Color(0xFF111111)],
+          label: 'Clubs',
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Create Your Own Strava Club',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Give your community a motivating home base.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 24),
+              _OrangeButton(label: 'Get Started', onPressed: onCreate),
+              const SizedBox(height: 10),
+              const _BubbleNote(text: 'New! Create and manage your club right from the app.'),
+              const SizedBox(height: 28),
+              const Center(
+                child: Text(
+                  'Learn More',
+                  style: TextStyle(color: _orange, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const _HeroBand(
+          icon: Icons.landscape,
+          colors: [Color(0xFFB14A1A), Color(0xFFFF8A3D)],
+          label: 'Community',
+        ),
+        for (final club in clubs)
+          _ClubCard(club: club, onJoin: onJoin),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
+
+class _ClubCard extends StatelessWidget {
+  const _ClubCard({required this.club, required this.onJoin});
+
+  final ClubItem club;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _BadgeIcon(color: club.accent, icon: Icons.groups, size: 58),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      club.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${club.location}\n${_formatNumber(club.members)} Athletes',
+                      style: const TextStyle(color: Colors.white70, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _OrangeButton(label: 'Join', onPressed: () => onJoin(club.name)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EventsView extends StatelessWidget {
+  const _EventsView({
+    required this.events,
+    required this.onCreate,
+    required this.onJoin,
+  });
+
+  final List<EventItem> events;
+  final VoidCallback onCreate;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final localEvents = events.where((event) => event.range == null).toList();
+    final races = events.where((event) => event.range != null).toList();
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        _SectionHeader(title: 'Local Club Events', action: 'Create', onAction: onCreate),
+        SizedBox(
+          height: 126,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) => _EventTile(event: localEvents[index], onJoin: onJoin),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemCount: localEvents.length,
+          ),
+        ),
+        const Divider(height: 32, color: Color(0xFF2B2B2A)),
+        const _SectionHeader(title: 'Races', action: 'View all'),
+        SizedBox(
+          height: 430,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemBuilder: (_, index) => _RaceCard(event: races[index], onJoin: onJoin),
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemCount: races.length,
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
+
+class _EventTile extends StatelessWidget {
+  const _EventTile({required this.event, required this.onJoin});
+
+  final EventItem event;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onJoin(event.title),
+      child: Container(
+        width: 330,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            _DateBadge(event: event),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${event.sport} · ${event.place}\n${event.members} Members',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RaceCard extends StatelessWidget {
+  const _RaceCard({required this.event, required this.onJoin});
+
+  final EventItem event;
+  final ValueChanged<String> onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 360,
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                const _MapPattern(),
+                Positioned(
+                  right: 14,
+                  top: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      event.range ?? '',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${event.place}\n${event.sport}\n${_formatNumber(event.members)} athletes racing',
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                _OrangeButton(label: 'Join', onPressed: () => onJoin(event.title)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroBand extends StatelessWidget {
+  const _HeroBand({
+    required this.icon,
+    required this.colors,
+    required this.label,
+  });
+
+  final IconData icon;
+  final List<Color> colors;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            bottom: -28,
+            child: Icon(icon, color: Colors.white.withValues(alpha: .16), size: 180),
+          ),
+          Positioned(
+            left: 20,
+            bottom: 20,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 28,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({
+    required this.color,
+    required this.icon,
+    this.size = 54,
+  });
+
+  final Color color;
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: Colors.white),
+    );
+  }
+}
+
+class _OrangeButton extends StatelessWidget {
+  const _OrangeButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: _orange,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, this.subtitle});
+
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+      child: Row(
+        children: [
+          const CircleAvatar(radius: 18, backgroundColor: Colors.white24),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (subtitle != null)
+                Text(subtitle!, style: const TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    this.action,
+    this.onAction,
+  });
+
+  final String title;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (action != null)
+            TextButton(
+              onPressed: onAction,
+              child: Text(action!, style: const TextStyle(color: Colors.white70)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BubbleNote extends StatelessWidget {
+  const _BubbleNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 330),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text, style: const TextStyle(color: Colors.black87)),
+      ),
+    );
+  }
+}
+
+class _DateBadge extends StatelessWidget {
+  const _DateBadge({required this.event});
+
+  final EventItem event;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 68,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            color: _orange,
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Text(
+              event.dateMonth,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            event.dateDay,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            event.dateWeekday,
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapPattern extends StatelessWidget {
+  const _MapPattern();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _MapPatternPainter(),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _MapPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: .045)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (var i = 0; i < 12; i++) {
+      final path = Path();
+      final y = size.height * (i / 12);
+      path.moveTo(0, y);
+      path.cubicTo(
+        size.width * .24,
+        y - 32,
+        size.width * .58,
+        y + 44,
+        size.width,
+        y + 4,
+      );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _CreateClubDialog extends StatefulWidget {
+  const _CreateClubDialog();
+
+  @override
+  State<_CreateClubDialog> createState() => _CreateClubDialogState();
+}
+
+class _CreateClubDialogState extends State<_CreateClubDialog> {
+  final _name = TextEditingController();
+  final _location = TextEditingController(text: 'Jakarta, Indonesia');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _location.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat Club'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Nama club')),
+          TextField(controller: _location, decoration: const InputDecoration(labelText: 'Lokasi')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(
+          onPressed: () {
+            final name = _name.text.trim();
+            if (name.isEmpty) return;
+            Navigator.pop(
+              context,
+              ClubItem(
+                name: name,
+                location: _location.text.trim().isEmpty
+                    ? 'Indonesia'
+                    : _location.text.trim(),
+                members: 1,
+                accent: _orange,
+              ),
+            );
+          },
+          child: const Text('Buat'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateEventDialog extends StatefulWidget {
+  const _CreateEventDialog();
+
+  @override
+  State<_CreateEventDialog> createState() => _CreateEventDialogState();
+}
+
+class _CreateEventDialogState extends State<_CreateEventDialog> {
+  final _title = TextEditingController();
+  final _place = TextEditingController(text: 'Jakarta, Indonesia');
+  String _sport = 'Run';
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _place.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat Event'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: _title, decoration: const InputDecoration(labelText: 'Nama event')),
+          TextField(controller: _place, decoration: const InputDecoration(labelText: 'Lokasi')),
+          DropdownButtonFormField<String>(
+            initialValue: _sport,
+            decoration: const InputDecoration(labelText: 'Jenis'),
+            items: const ['Run', 'Ride', 'Swim', 'Walk', 'Hike', 'Workout']
+                .map((sport) => DropdownMenuItem(value: sport, child: Text(sport)))
+                .toList(),
+            onChanged: (value) => setState(() => _sport = value ?? _sport),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(
+          onPressed: () {
+            final title = _title.text.trim();
+            if (title.isEmpty) return;
+            Navigator.pop(
+              context,
+              EventItem(
+                title: title,
+                sport: _sport,
+                place: _place.text.trim().isEmpty ? 'Indonesia' : _place.text.trim(),
+                dateMonth: 'SEP',
+                dateDay: '28',
+                dateWeekday: 'SUN',
+                members: 1,
+              ),
+            );
+          },
+          child: const Text('Buat'),
+        ),
+      ],
+    );
+  }
+}
+
+class ChallengeItem {
+  const ChallengeItem({
+    required this.title,
+    required this.genre,
+    required this.target,
+    required this.date,
+    required this.accent,
+    required this.icon,
+  });
+
+  final String title;
+  final String genre;
+  final String target;
+  final String date;
+  final Color accent;
+  final IconData icon;
+}
+
+class ClubItem {
+  const ClubItem({
+    required this.name,
+    required this.location,
+    required this.members,
+    required this.accent,
+  });
+
+  final String name;
+  final String location;
+  final int members;
+  final Color accent;
+}
+
+class EventItem {
+  const EventItem({
+    required this.title,
+    required this.sport,
+    required this.place,
+    required this.dateMonth,
+    required this.dateDay,
+    required this.dateWeekday,
+    required this.members,
+    this.range,
+  });
+
+  final String title;
+  final String sport;
+  final String place;
+  final String dateMonth;
+  final String dateDay;
+  final String dateWeekday;
+  final int members;
+  final String? range;
+}
+
+String _formatNumber(int value) {
+  final text = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < text.length; i++) {
+    final remaining = text.length - i;
+    buffer.write(text[i]);
+    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
+  }
+  return buffer.toString();
+}
