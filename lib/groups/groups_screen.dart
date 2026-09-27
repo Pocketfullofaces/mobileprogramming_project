@@ -1101,3 +1101,186 @@ class _MapPatternPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+class _CreateClubDialog extends StatefulWidget {
+  const _CreateClubDialog();
+
+  @override
+  State<_CreateClubDialog> createState() => _CreateClubDialogState();
+}
+
+class _CreateClubDialogState extends State<_CreateClubDialog> {
+  final _name = TextEditingController();
+  final _location = TextEditingController(text: 'Jakarta, Indonesia');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _location.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat Club'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Nama club')),
+          TextField(controller: _location, decoration: const InputDecoration(labelText: 'Lokasi')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(
+          onPressed: () {
+            final name = _name.text.trim();
+            if (name.isEmpty) return;
+            Navigator.pop(
+              context,
+              ClubItem(
+                name: name,
+                location: _location.text.trim().isEmpty
+                    ? 'Indonesia'
+                    : _location.text.trim(),
+                members: 1,
+                accent: _orange,
+              ),
+            );
+          },
+          child: const Text('Buat'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateEventDialog extends StatefulWidget {
+  const _CreateEventDialog();
+
+  @override
+  State<_CreateEventDialog> createState() => _CreateEventDialogState();
+}
+
+class _CreateEventDialogState extends State<_CreateEventDialog> {
+  final _title = TextEditingController();
+  final _place = TextEditingController(text: 'Jakarta, Indonesia');
+  String _sport = 'Run';
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _place.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Buat Event'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: _title, decoration: const InputDecoration(labelText: 'Nama event')),
+          TextField(controller: _place, decoration: const InputDecoration(labelText: 'Lokasi')),
+          DropdownButtonFormField<String>(
+            initialValue: _sport,
+            decoration: const InputDecoration(labelText: 'Jenis'),
+            items: const ['Run', 'Ride', 'Swim', 'Walk', 'Hike', 'Workout']
+                .map((sport) => DropdownMenuItem(value: sport, child: Text(sport)))
+                .toList(),
+            onChanged: (value) => setState(() => _sport = value ?? _sport),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(
+          onPressed: () {
+            final title = _title.text.trim();
+            if (title.isEmpty) return;
+            Navigator.pop(
+              context,
+              EventItem(
+                title: title,
+                sport: _sport,
+                place: _place.text.trim().isEmpty ? 'Indonesia' : _place.text.trim(),
+                dateMonth: 'SEP',
+                dateDay: '28',
+                dateWeekday: 'SUN',
+                members: 1,
+              ),
+            );
+          },
+          child: const Text('Buat'),
+        ),
+      ],
+    );
+  }
+}
+
+class ChallengeItem {
+  const ChallengeItem({
+    required this.title,
+    required this.genre,
+    required this.target,
+    required this.date,
+    required this.accent,
+    required this.icon,
+  });
+
+  final String title;
+  final String genre;
+  final String target;
+  final String date;
+  final Color accent;
+  final IconData icon;
+}
+
+class ClubItem {
+  const ClubItem({
+    required this.name,
+    required this.location,
+    required this.members,
+    required this.accent,
+  });
+
+  final String name;
+  final String location;
+  final int members;
+  final Color accent;
+}
+
+class EventItem {
+  const EventItem({
+    required this.title,
+    required this.sport,
+    required this.place,
+    required this.dateMonth,
+    required this.dateDay,
+    required this.dateWeekday,
+    required this.members,
+    this.range,
+  });
+
+  final String title;
+  final String sport;
+  final String place;
+  final String dateMonth;
+  final String dateDay;
+  final String dateWeekday;
+  final int members;
+  final String? range;
+}
+
+String _formatNumber(int value) {
+  final text = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < text.length; i++) {
+    final remaining = text.length - i;
+    buffer.write(text[i]);
+    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
+  }
+  return buffer.toString();
+}
