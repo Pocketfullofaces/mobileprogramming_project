@@ -1278,3 +1278,144 @@ class _MiniCalendar extends StatelessWidget {
     );
   }
 }
+
+class _FullCalendar extends StatelessWidget {
+  const _FullCalendar({required this.dates, required this.month});
+
+  final List<DateTime> dates;
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+    final days = DateUtils.getDaysInMonth(month.year, month.month);
+    return Column(
+      children: [
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            Text('M', style: TextStyle(color: Colors.white70)),
+            Text('T', style: TextStyle(color: Colors.white70)),
+            Text('W', style: TextStyle(color: Colors.white70)),
+            Text('T', style: TextStyle(color: Colors.white70)),
+            Text('F', style: TextStyle(color: Colors.white70)),
+            Text('S', style: TextStyle(color: Colors.white70)),
+            Text('S', style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+        const SizedBox(height: 18),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+          itemCount: days,
+          itemBuilder: (_, index) {
+            final day = index + 1;
+            final isActive = active.contains(DateTime(month.year, month.month, day));
+            final isToday = day == month.day;
+            return Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive ? _orange : Colors.white10,
+                border: Border.all(
+                  color: isToday ? Colors.white : Colors.transparent,
+                ),
+              ),
+              child: Text(
+                '$day',
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _RunStats {
+  const _RunStats({
+    required this.runs,
+    required this.totalKm,
+    required this.totalMinutes,
+    required this.weekKm,
+    required this.weekMinutes,
+    required this.weeklyKm,
+  });
+
+  final int runs;
+  final double totalKm;
+  final int totalMinutes;
+  final double weekKm;
+  final int weekMinutes;
+  final List<double> weeklyKm;
+
+  int get totalHours => (totalMinutes / 60).round();
+  int get avgWeeklyRuns => (runs / 12).round();
+  int get avgWeeklyHours => (totalMinutes / 60 / 12).round();
+  double get avgWeeklyKm => totalKm / 12;
+
+  factory _RunStats.fromDocs(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
+    final activities = docs
+        .map((doc) => doc.data())
+        .where((data) => data['kind'] == 'activity')
+        .toList();
+    final totalKm = activities.fold<double>(
+      0,
+      (total, data) => total + ((data['distanceKm'] as num?)?.toDouble() ?? 0),
+    );
+    final totalMinutes = activities.fold<int>(
+      0,
+      (total, data) => total + ((data['durationMinutes'] as num?)?.toInt() ?? 0),
+    );
+    final weeklyKm = List<double>.filled(12, 0);
+    for (final data in activities) {
+      final createdAt = data['createdAt'];
+      if (createdAt is! Timestamp) continue;
+      final weeksAgo = DateTime.now().difference(createdAt.toDate()).inDays ~/ 7;
+      if (weeksAgo >= 0 && weeksAgo < 12) {
+        weeklyKm[11 - weeksAgo] += ((data['distanceKm'] as num?)?.toDouble() ?? 0);
+      }
+    }
+    return _RunStats(
+      runs: activities.length,
+      totalKm: totalKm,
+      totalMinutes: totalMinutes,
+      weekKm: weeklyKm.isEmpty ? 0 : weeklyKm.last,
+      weekMinutes: totalMinutes,
+      weeklyKm: weeklyKm,
+    );
+  }
+}
+
+Uint8List? _decodePhoto(Object? value) {
+  if (value is! String || value.isEmpty) return null;
+  try {
+    return base64Decode(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+String _monthTitle(DateTime date) {
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  return '${months[date.month - 1]} ${date.year}';
+}
