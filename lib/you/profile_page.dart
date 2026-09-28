@@ -1112,3 +1112,169 @@ class _RoundedCard extends StatelessWidget {
     );
   }
 }
+
+class _SmallMetric extends StatelessWidget {
+  const _SmallMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatLine extends StatelessWidget {
+  const _StatLine({
+    required this.label,
+    required this.value,
+    this.large = false,
+  });
+
+  final String label;
+  final String value;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(color: Colors.white, fontSize: large ? 28 : 18),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: large ? 28 : 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressChart extends StatelessWidget {
+  const _ProgressChart({required this.points});
+
+  final List<double> points;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _ProgressChartPainter(points),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _ProgressChartPainter extends CustomPainter {
+  _ProgressChartPainter(this.points);
+
+  final List<double> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = Colors.white24
+      ..strokeWidth = 1;
+    for (final y in [size.height * .2, size.height * .55, size.height * .9]) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final line = Paint()
+      ..color = _orange
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final dot = Paint()
+      ..color = _card
+      ..strokeWidth = 3
+      ..style = PaintingStyle.fill;
+    final outline = Paint()
+      ..color = _orange
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final path = Path();
+    final safePoints = points.isEmpty ? List<double>.filled(12, 0) : points;
+    for (var i = 0; i < safePoints.length; i++) {
+      final x = safePoints.length == 1 ? 0.0 : size.width * i / (safePoints.length - 1);
+      final clamped = safePoints[i].clamp(0, 6).toDouble();
+      final y = size.height * .9 - (clamped / 6) * size.height * .7;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, line);
+    for (var i = 0; i < safePoints.length; i++) {
+      final x = safePoints.length == 1 ? 0.0 : size.width * i / (safePoints.length - 1);
+      final clamped = safePoints[i].clamp(0, 6).toDouble();
+      final y = size.height * .9 - (clamped / 6) * size.height * .7;
+      canvas.drawCircle(Offset(x, y), 6, dot);
+      canvas.drawCircle(Offset(x, y), 6, outline);
+    }
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    for (final label in [('6 km', .17), ('3 km', .52), ('0 km', .87)]) {
+      textPainter.text = TextSpan(
+        text: label.$1,
+        style: const TextStyle(color: Colors.white70, fontSize: 14),
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(size.width + 8, size.height * label.$2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressChartPainter oldDelegate) =>
+      oldDelegate.points != points;
+}
+
+class _MiniCalendar extends StatelessWidget {
+  const _MiniCalendar({required this.dates});
+
+  final List<DateTime> dates;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+    final now = DateTime.now();
+    return Wrap(
+      spacing: 9,
+      runSpacing: 9,
+      children: [
+        for (var i = 0; i < 30; i++)
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: active.contains(DateTime(now.year, now.month, i + 1))
+                  ? _orange
+                  : Colors.white10,
+              border: Border.all(color: Colors.white12),
+            ),
+          ),
+      ],
+    );
+  }
+}
