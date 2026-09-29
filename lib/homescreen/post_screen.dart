@@ -1,264 +1,76 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../services/social_service.dart';
 
-void showFailure(BuildContext context, Object error) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(friendlyError(error))));
-}
-
-class FriendsScreen extends StatefulWidget {
-  const FriendsScreen({super.key});
+class PostScreen extends StatefulWidget {
+  const PostScreen({super.key, required this.kind});
+  final String kind;
   @override
-  State<FriendsScreen> createState() => _FriendsScreenState();
+  State<PostScreen> createState() => _PostScreenState();
 }
 
-class _FriendsScreenState extends State<FriendsScreen> {
-  String _query = '';
-  final _service = SocialService.instance;
-  @override
-  Widget build(BuildContext context) {
-    Query<Map<String, dynamic>> users = _service.db
-        .collection('users')
-        .orderBy('usernameLowercase');
-    if (_query.isNotEmpty) {
-      users = users.startAt([_query]).endAt(['$_query\uf8ff']);
-    }
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cari teman')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              autocorrect: false,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Cari berdasarkan username',
-              ),
-              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-            ),
-          ),
-          if (_query.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('Temukan akun untuk diikuti atau diajak chat'),
-            ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: users.limit(30).snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text(friendlyError(snapshot.error!)));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final docs = snapshot.data!.docs
-                    .where((d) => d.id != _service.uid)
-                    .toList();
-                if (docs.isEmpty) {
-                  return const Center(child: Text('Akun tidak ditemukan.'));
-                }
-                return ListView.builder(
-                  itemCount: docs.length,
-                  itemBuilder: (_, i) =>
-                      _FriendTile(key: ValueKey(docs[i].id), user: docs[i]),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FriendTile extends StatefulWidget {
-  const _FriendTile({super.key, required this.user});
-  final QueryDocumentSnapshot<Map<String, dynamic>> user;
-  @override
-  State<_FriendTile> createState() => _FriendTileState();
-}
-
-class _FriendTileState extends State<_FriendTile> {
+class _PostScreenState extends State<PostScreen> {
+  final _form = GlobalKey<FormState>();
+  final _caption = TextEditingController();
+  final _distance = TextEditingController();
+  final _minutes = TextEditingController();
+  Uint8List? _photo;
+  String? _mime, _error;
   bool _busy = false;
-  final _service = SocialService.instance;
-  Future<void> _run(Future<void> Function() action) async {
-    setState(() => _busy = true);
+
+  Future<void> _pick() async {
     try {
-      await action();
+      final photo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 900,
+        imageQuality: 45,
+      );
+      if (photo == null) return;
+      final bytes = await photo.readAsBytes();
+      if (bytes.length > 600 * 1024) {
+        throw StateError('Pilih foto berukuran maksimal 600 KB.');
+      }
+      final mime =
+          photo.mimeType ??
+          (photo.name.toLowerCase().endsWith('.png')
+              ? 'image/png'
+              : 'image/jpeg');
+      if (!mounted) return;
+      setState(() {
+        _photo = bytes;
+        _mime = mime;
+        _error = null;
+      });
     } catch (e) {
-      if (mounted) showFailure(context, e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _error = friendlyError(e));
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final name = widget.user.data()['username'] as String? ?? 'User';
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _service.db
-          .collection('users')
-          .doc(_service.uid)
-          .collection('following')
-          .doc(widget.user.id)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final following = snapshot.data?.exists ?? false;
-        return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text('@$name'),
-          subtitle: snapshot.hasError
-              ? const Text('Status follow gagal dimuat')
-              : null,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Chat',
-                icon: const Icon(Icons.chat_bubble_outline),
-                onPressed: _busy
-                    ? null
-                    : () => _run(() async {
-                        final id = await _service.chatWith(widget.user.id);
-                        if (!context.mounted) return;
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                ChatScreen(chatId: id, title: '@$name'),
-                          ),
-                        );
-                      }),
-              ),
-              FilledButton(
-                onPressed: _busy || !snapshot.hasData || snapshot.hasError
-                    ? null
-                    : () => _run(
-                        () => _service.follow(widget.user.id, following),
-                      ),
-                child: Text(following ? 'Unfollow' : 'Follow'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final service = SocialService.instance;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages'),
-        actions: [
-          IconButton(
-            tooltip: 'Chat baru',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(builder: (_) => const FriendsScreen()),
-            ),
-            icon: const Icon(Icons.edit_square),
-          ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: service.db
-            .collection('chats')
-            .where('members', arrayContains: service.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!)));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final chats = snapshot.data!.docs.toList()
-            ..sort(
-              (a, b) =>
-                  timestamp(
-                    b.data()['updatedAt'] ?? b.data()['createdAt'],
-                  ).compareTo(
-                    timestamp(a.data()['updatedAt'] ?? a.data()['createdAt']),
-                  ),
-            );
-          if (chats.isEmpty) {
-            return const Center(
-              child: Text(
-                'Belum ada chat. Tekan tombol kanan atas untuk cari teman.',
-              ),
-            );
-          }
-          return ListView.builder(
-            itemCount: chats.length,
-            itemBuilder: (context, i) {
-              final chat = chats[i];
-              final other = (chat.data()['members'] as List).firstWhere(
-                (id) => id != service.uid,
-              ) as String;
-              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: service.db.collection('users').doc(other).snapshots(),
-                builder: (context, user) {
-                  final name =
-                      user.data?.data()?['username'] as String? ?? 'User';
-                  return ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: Text('@$name'),
-                    subtitle: Text(
-                      chat.data()['lastMessage'] as String? ??
-                          'Mulai percakapan',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ChatScreen(chatId: chat.id, title: '@$name'),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-DateTime timestamp(dynamic value) => value is Timestamp
-    ? value.toDate()
-    : DateTime.fromMillisecondsSinceEpoch(0);
-
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.chatId, required this.title});
-  final String chatId, title;
-  @override
-  State<ChatScreen> createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends State<ChatScreen> {
-  final _text = TextEditingController();
-  bool _busy = false;
-  int _limit = 50;
-  Future<void> _send() async {
-    if (_busy || _text.text.trim().isEmpty) return;
-    setState(() => _busy = true);
+  Future<void> _publish() async {
+    if (!_form.currentState!.validate()) return;
+    if (widget.kind == 'photo' && _photo == null) {
+      setState(() => _error = 'Pilih foto terlebih dahulu.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      await SocialService.instance.sendMessage(widget.chatId, _text.text);
-      _text.clear();
+      await SocialService.instance.publish(
+        kind: widget.kind,
+        caption: _caption.text,
+        photo: _photo,
+        contentType: _mime,
+        distance: double.tryParse(_distance.text.replaceAll(',', '.')),
+        minutes: int.tryParse(_minutes.text),
+      );
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) showFailure(context, e);
+      if (mounted) setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -266,205 +78,105 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
-    _text.dispose();
+    _caption.dispose();
+    _distance.dispose();
+    _minutes.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final service = SocialService.instance;
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: SafeArea(
-        child: Column(
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_busy,
+    child: Scaffold(
+      appBar: AppBar(
+        title: Text(switch (widget.kind) {
+          'photo' => 'Post foto',
+          'activity' => 'Catat aktivitas',
+          _ => 'Buat post',
+        }),
+      ),
+      body: Form(
+        key: _form,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: service.db
-                    .collection('chats')
-                    .doc(widget.chatId)
-                    .collection('messages')
-                    .orderBy('createdAt', descending: true)
-                    .limit(_limit)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text(friendlyError(snapshot.error!)));
-                  }
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final docs = snapshot.data!.docs;
-                  if (docs.isEmpty) {
-                    return const Center(
-                      child: Text('Kirim pesan pertama kamu.'),
-                    );
-                  }
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: docs.length + 1,
-                    itemBuilder: (_, i) {
-                      if (i == docs.length) {
-                        return docs.length < _limit
-                            ? const SizedBox.shrink()
-                            : TextButton(
-                                onPressed: () => setState(() => _limit += 50),
-                                child: const Text('Muat pesan sebelumnya'),
-                              );
-                      }
-                      final data = docs[i].data();
-                      final mine = data['senderId'] == service.uid;
-                      return Align(
-                        alignment: mine
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.sizeOf(context).width * .78,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: mine
-                                ? const Color(0xFF9C3500)
-                                : const Color(0xFF292927),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(data['text'] as String? ?? ''),
-                        ),
-                      );
-                    },
-                  );
+            TextFormField(
+              controller: _caption,
+              enabled: !_busy,
+              minLines: 3,
+              maxLines: 6,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'Ceritakan aktivitasmu',
+              ),
+              validator: (v) =>
+                  widget.kind == 'text' && (v ?? '').trim().isEmpty
+                  ? 'Isi post terlebih dahulu.'
+                  : null,
+            ),
+            if (widget.kind == 'photo') ...[
+              if (_photo != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.memory(_photo!, height: 260, fit: BoxFit.cover),
+                ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pick,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(
+                  _photo == null ? 'Pilih foto dari galeri' : 'Ganti foto',
+                ),
+              ),
+            ],
+            if (widget.kind == 'activity') ...[
+              const Text(
+                'Catat aktivitas yang sudah kamu selesaikan hari ini. Aktivitas menambah streak maksimal satu kali per hari.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _distance,
+                enabled: !_busy,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: 'Jarak (km)'),
+                validator: (v) {
+                  final n = double.tryParse((v ?? '').replaceAll(',', '.'));
+                  return n == null || !n.isFinite || n <= 0 || n > 1000
+                      ? 'Isi jarak lebih dari 0, maksimal 1000 km.'
+                      : null;
                 },
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _text,
-                      enabled: !_busy,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: 2000,
-                      decoration: const InputDecoration(
-                        hintText: 'Tulis pesan…',
-                        counterText: '',
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Kirim',
-                    onPressed: _busy ? null : _send,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _minutes,
+                enabled: !_busy,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Durasi (menit)'),
+                validator: (v) {
+                  final n = int.tryParse(v ?? '');
+                  return n == null || n <= 0 || n > 1440
+                      ? 'Isi durasi 1-1440 menit.'
+                      : null;
+                },
               ),
+            ],
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _busy ? null : _publish,
+              child: Text(_busy ? 'Menyimpan…' : 'Bagikan'),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
-  @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
-}
-
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  int _limit = 30;
-  @override
-  Widget build(BuildContext context) {
-    final service = SocialService.instance;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Notifikasi')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: service.db
-            .collection('users')
-            .doc(service.uid)
-            .collection('notifications')
-            .orderBy('createdAt', descending: true)
-            .limit(_limit)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!)));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) {
-            return const Center(child: Text('Belum ada notifikasi.'));
-          }
-          return ListView.builder(
-            itemCount: docs.length + 1,
-            itemBuilder: (context, i) {
-              if (i == docs.length) {
-                return docs.length < _limit
-                    ? const SizedBox.shrink()
-                    : TextButton(
-                        onPressed: () => setState(() => _limit += 30),
-                        child: const Text('Muat lagi'),
-                      );
-              }
-              final doc = docs[i];
-              final data = doc.data();
-              return ListTile(
-                leading: Icon(
-                  data['type'] == 'message'
-                      ? Icons.chat_bubble_outline
-                      : Icons.person_add_outlined,
-                ),
-                title: Text(data['title'] as String? ?? 'Notifikasi'),
-                subtitle: Text(data['body'] as String? ?? ''),
-                trailing: data['read'] == true
-                    ? null
-                    : const Icon(Icons.circle, size: 10, color: Colors.orange),
-                onTap: () async {
-                  try {
-                    await doc.reference.update({'read': true});
-                    if (!context.mounted) return;
-                    if (data['chatId'] is String) {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => ChatScreen(
-                            chatId: data['chatId'] as String,
-                            title: data['title'] as String? ?? 'Chat',
-                          ),
-                        ),
-                      );
-                    } else {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const FriendsScreen(),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) showFailure(context, e);
-                  }
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+    ),
+  );
 }
