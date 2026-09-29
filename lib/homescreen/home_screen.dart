@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../services/social_service.dart';
 import 'post_screen.dart';
-import 'social_screens.dart';
 import 'streak_logic.dart';
 import 'widgets/home_header.dart';
 import 'widgets/streak.dart';
+import 'social_screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -87,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
               hasUnread: snapshot.data?.docs.isNotEmpty ?? false,
             ),
           ),
-          Expanded(
+          Expanded( 
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _service.db
                   .collection('users')
