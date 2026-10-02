@@ -77,38 +77,23 @@ class ProfilePage extends StatelessWidget {
                       activitiesCount: activities.length,
                     ),
                     const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _OutlinePill(
-                            label: 'Edit profile',
-                            onTap: () => Navigator.push<void>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EditProfilePage(
-                                  initialProfile: profile,
-                                ),
-                              ),
-                            ),
-                          ),
+                    _OutlinePill(
+                      label: 'Edit profile',
+                      onTap: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditProfilePage(initialProfile: profile),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _OutlinePill(
-                            label: 'Share profile',
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Share profile disiapkan nanti.'),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 18),
                     _ProfileSectionTabs(
+                      onActivities: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => _ActivitiesPage(activities: activities),
+                        ),
+                      ),
                       onStats: () => Navigator.push<void>(
                         context,
                         MaterialPageRoute(
@@ -128,8 +113,6 @@ class ProfilePage extends StatelessWidget {
                         builder: (_) => _StreakSheet(dates: activityDates),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    _StatisticsPreview(stats: stats),
                   ],
                 );
               },
@@ -152,10 +135,6 @@ class _ProfileTopBar extends StatelessWidget {
     return Row(
       children: [
         const Expanded(child: SizedBox()),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.add, color: Colors.white, size: 34),
-        ),
         IconButton(
           onPressed: onSearch,
           icon: const Icon(Icons.search, color: Colors.white, size: 34),
@@ -240,7 +219,9 @@ class _FollowCounts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final db = SocialService.instance.db;
-    return Row(
+    return InkWell(
+      onTap: () => _showConnectionChoice(context, uid),
+      child: Row(
       children: [
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: db.collection('users').doc(uid).collection('followers').snapshots(),
@@ -258,6 +239,7 @@ class _FollowCounts extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }
@@ -319,8 +301,9 @@ class _OutlinePill extends StatelessWidget {
 }
 
 class _ProfileSectionTabs extends StatelessWidget {
-  const _ProfileSectionTabs({required this.onStats});
+  const _ProfileSectionTabs({required this.onActivities, required this.onStats});
 
+  final VoidCallback onActivities;
   final VoidCallback onStats;
 
   @override
@@ -338,11 +321,14 @@ class _ProfileSectionTabs extends StatelessWidget {
               active: true,
             ),
           ),
-          const Expanded(
-            child: _ProfileTab(
-              icon: Icons.timeline,
-              label: 'Activities',
-              active: false,
+          Expanded(
+            child: InkWell(
+              onTap: onActivities,
+              child: const _ProfileTab(
+                icon: Icons.timeline,
+                label: 'Activities',
+                active: false,
+              ),
             ),
           ),
           Expanded(
@@ -399,13 +385,22 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
-class _ProgressCard extends StatelessWidget {
+class _ProgressCard extends StatefulWidget {
   const _ProgressCard({required this.stats});
 
   final _RunStats stats;
 
   @override
+  State<_ProgressCard> createState() => _ProgressCardState();
+}
+
+class _ProgressCardState extends State<_ProgressCard> {
+  int selectedWeek = 11;
+
+  @override
   Widget build(BuildContext context) {
+    final stats = widget.stats;
+    final weekStart = _startOfWeek(DateTime.now()).subtract(Duration(days: (11 - selectedWeek) * 7));
     return _RoundedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,8 +427,8 @@ class _ProgressCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 26),
-          const Text(
-            'Jul 20 - Jul 26, 2026',
+          Text(
+            _weekLabel(weekStart),
             style: TextStyle(
               color: Colors.white,
               fontSize: 26,
@@ -443,15 +438,26 @@ class _ProgressCard extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              _SmallMetric(label: 'Distance', value: '${stats.weekKm.toStringAsFixed(0)} km'),
-              _SmallMetric(label: 'Time', value: '${stats.weekMinutes}m'),
+              _SmallMetric(label: 'Distance', value: '${stats.weeklyKm[selectedWeek].toStringAsFixed(0)} km'),
+              _SmallMetric(label: 'Time', value: '${stats.weeklyMinutes[selectedWeek]}m'),
               const _SmallMetric(label: 'Elev Gain', value: '0 m'),
             ],
           ),
           const SizedBox(height: 26),
           const Text('Past 12 weeks', style: TextStyle(color: Colors.white70)),
           const SizedBox(height: 14),
-          SizedBox(height: 160, child: _ProgressChart(points: stats.weeklyKm)),
+          SizedBox(
+            height: 160,
+            child: LayoutBuilder(
+              builder: (context, constraints) => GestureDetector(
+                onTapUp: (details) {
+                  final index = ((details.localPosition.dx / constraints.maxWidth) * 12).round().clamp(0, 11);
+                  setState(() => selectedWeek = index);
+                },
+                child: _ProgressChart(points: stats.weeklyKm, selectedIndex: selectedWeek),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -466,55 +472,64 @@ class _StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final weeks = calculateStreak(dates, DateTime.now()) ~/ 7;
+    final streakDays = calculateStreak(dates, DateTime.now());
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(22),
       child: _RoundedCard(
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Streak',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
+            const Text(
+              'Streak',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
                     children: [
-                      const Icon(Icons.local_fire_department, color: Colors.white70, size: 72),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$weeks\nWeeks',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 26,
-                          height: 1.05,
-                          fontWeight: FontWeight.w900,
+                      const Icon(Icons.local_fire_department, color: _orange, size: 58),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          '$streakDays days\ncurrent streak',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Row(
-                  children: [
-                    Text('This month', style: TextStyle(color: Colors.white70)),
-                    Icon(Icons.chevron_right, color: Colors.white70),
-                  ],
                 ),
-                const SizedBox(height: 20),
-                _MiniCalendar(dates: dates),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 118,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text('This month', style: TextStyle(color: Colors.white70)),
+                          ),
+                          Icon(Icons.chevron_right, color: Colors.white70),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _MiniCalendar(dates: dates),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
@@ -632,6 +647,47 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
+  DateTime _getBirthDate() {
+    final value = _birthDate.text.trim();
+    if (value.isEmpty) return DateTime(2000, 1, 1);
+
+    final isoDate = DateTime.tryParse(value);
+    if (isoDate != null) return isoDate;
+
+    final parts = value.split('/');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+
+    return DateTime(2000, 1, 1);
+  }
+
+  Future<void> _pickBirthDate() async {
+    final today = DateTime.now();
+    final firstDate = DateTime(1900);
+    var initialDate = _getBirthDate();
+    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+    if (initialDate.isAfter(today)) initialDate = today;
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: today,
+      helpText: 'Pilih tanggal lahir',
+    );
+    if (selectedDate == null) return;
+
+    final day = selectedDate.day.toString().padLeft(2, '0');
+    final month = selectedDate.month.toString().padLeft(2, '0');
+    _birthDate.text = '$day/$month/${selectedDate.year}';
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
@@ -745,7 +801,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _EditField(controller: _country, label: 'Negara'),
             _EditField(controller: _city, label: 'Kota'),
             _EditField(controller: _bio, label: 'Bio', maxLines: 3),
-            _EditField(controller: _birthDate, label: 'Tanggal lahir'),
+            _EditField(
+              controller: _birthDate,
+              label: 'Tanggal lahir',
+              readOnly: true,
+              onTap: _pickBirthDate,
+              suffixIcon: const Icon(Icons.calendar_month),
+            ),
             DropdownButtonFormField<String>(
               initialValue: _gender,
               decoration: const InputDecoration(labelText: 'Gender'),
@@ -869,7 +931,111 @@ class _PersonTile extends StatelessWidget {
                       );
                     }
                   },
-                  child: Text(following ? 'Following' : 'Follow'),
+                  child: Text(following ? 'Unfollow' : 'Follow'),
+                );
+              },
+            ),
+    );
+  }
+}
+
+void _showConnectionChoice(BuildContext context, String uid) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: _card,
+    builder: (_) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.people, color: Colors.white),
+            title: const Text('Followers', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push<void>(context, MaterialPageRoute(builder: (_) => _ConnectionsPage(uid: uid, collection: 'followers', title: 'Followers')));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_add, color: Colors.white),
+            title: const Text('Following', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push<void>(context, MaterialPageRoute(builder: (_) => _ConnectionsPage(uid: uid, collection: 'following', title: 'Following')));
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ConnectionsPage extends StatelessWidget {
+  const _ConnectionsPage({required this.uid, required this.collection, required this.title});
+
+  final String uid;
+  final String collection;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final db = SocialService.instance.db;
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(backgroundColor: _bg, title: Text(title)),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: db.collection('users').doc(uid).collection(collection).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return Center(child: Text(friendlyError(snapshot.error!)));
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final ids = snapshot.data!.docs.map((doc) => doc.id).toList();
+          if (ids.isEmpty) return const Center(child: Text('Belum ada akun.', style: TextStyle(color: Colors.white70)));
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: ids.length,
+            itemBuilder: (_, index) => FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              future: db.collection('users').doc(ids[index]).get(),
+              builder: (_, userSnap) {
+                if (!userSnap.hasData || !userSnap.data!.exists) return const SizedBox.shrink();
+                return _PersonTile(targetUid: ids[index], profile: userSnap.data!.data()!);
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ActivitiesPage extends StatelessWidget {
+  const _ActivitiesPage({required this.activities});
+
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = activities.where((doc) => doc.data()['kind'] == 'activity').toList();
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(backgroundColor: _bg, title: const Text('Activities')),
+      body: items.isEmpty
+          ? const Center(child: Text('Belum ada aktivitas.', style: TextStyle(color: Colors.white70)))
+          : ListView.separated(
+              padding: const EdgeInsets.all(20),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (_, index) {
+                final data = items[index].data();
+                final time = data['createdAt'] is Timestamp ? (data['createdAt'] as Timestamp).toDate() : null;
+                return _RoundedCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(data['caption'] as String? ?? 'Run', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    Text('${data['distanceKm'] ?? 0} km  •  ${data['durationMinutes'] ?? 0} menit', style: const TextStyle(color: Colors.white70)),
+                    if (time != null) ...[
+                      const SizedBox(height: 6),
+                      Text(_dateLabel(time), style: const TextStyle(color: Colors.white54)),
+                    ],
+                  ]),
                 );
               },
             ),
@@ -882,11 +1048,17 @@ class _EditField extends StatelessWidget {
     required this.controller,
     required this.label,
     this.maxLines = 1,
+    this.readOnly = false,
+    this.onTap,
+    this.suffixIcon,
   });
 
   final TextEditingController controller;
   final String label;
   final int maxLines;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final Widget? suffixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -895,8 +1067,13 @@ class _EditField extends StatelessWidget {
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        readOnly: readOnly,
+        onTap: onTap,
         style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+          labelText: label,
+          suffixIcon: suffixIcon,
+        ),
       ),
     );
   }
@@ -1175,23 +1352,25 @@ class _StatLine extends StatelessWidget {
 }
 
 class _ProgressChart extends StatelessWidget {
-  const _ProgressChart({required this.points});
+  const _ProgressChart({required this.points, required this.selectedIndex});
 
   final List<double> points;
+  final int selectedIndex;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ProgressChartPainter(points),
+      painter: _ProgressChartPainter(points, selectedIndex),
       child: const SizedBox.expand(),
     );
   }
 }
 
 class _ProgressChartPainter extends CustomPainter {
-  _ProgressChartPainter(this.points);
+  _ProgressChartPainter(this.points, this.selectedIndex);
 
   final List<double> points;
+  final int selectedIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1232,6 +1411,12 @@ class _ProgressChartPainter extends CustomPainter {
       final y = size.height * .9 - (clamped / 6) * size.height * .7;
       canvas.drawCircle(Offset(x, y), 6, dot);
       canvas.drawCircle(Offset(x, y), 6, outline);
+      if (i == selectedIndex) {
+        final selected = Paint()..color = _orange;
+        canvas.drawCircle(Offset(x, y), 10, selected);
+        canvas.drawCircle(Offset(x, y), 6, dot);
+        canvas.drawCircle(Offset(x, y), 6, outline);
+      }
     }
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     for (final label in [('6 km', .17), ('3 km', .52), ('0 km', .87)]) {
@@ -1246,7 +1431,7 @@ class _ProgressChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ProgressChartPainter oldDelegate) =>
-      oldDelegate.points != points;
+      oldDelegate.points != points || oldDelegate.selectedIndex != selectedIndex;
 }
 
 class _MiniCalendar extends StatelessWidget {
@@ -1346,6 +1531,7 @@ class _RunStats {
     required this.weekKm,
     required this.weekMinutes,
     required this.weeklyKm,
+    required this.weeklyMinutes,
   });
 
   final int runs;
@@ -1354,6 +1540,7 @@ class _RunStats {
   final double weekKm;
   final int weekMinutes;
   final List<double> weeklyKm;
+  final List<int> weeklyMinutes;
 
   int get totalHours => (totalMinutes / 60).round();
   int get avgWeeklyRuns => (runs / 12).round();
@@ -1374,12 +1561,14 @@ class _RunStats {
       (total, data) => total + ((data['durationMinutes'] as num?)?.toInt() ?? 0),
     );
     final weeklyKm = List<double>.filled(12, 0);
+    final weeklyMinutes = List<int>.filled(12, 0);
     for (final data in activities) {
       final createdAt = data['createdAt'];
       if (createdAt is! Timestamp) continue;
       final weeksAgo = DateTime.now().difference(createdAt.toDate()).inDays ~/ 7;
       if (weeksAgo >= 0 && weeksAgo < 12) {
         weeklyKm[11 - weeksAgo] += ((data['distanceKm'] as num?)?.toDouble() ?? 0);
+        weeklyMinutes[11 - weeksAgo] += ((data['durationMinutes'] as num?)?.toInt() ?? 0);
       }
     }
     return _RunStats(
@@ -1389,6 +1578,7 @@ class _RunStats {
       weekKm: weeklyKm.isEmpty ? 0 : weeklyKm.last,
       weekMinutes: totalMinutes,
       weeklyKm: weeklyKm,
+      weeklyMinutes: weeklyMinutes,
     );
   }
 }
@@ -1419,3 +1609,20 @@ String _monthTitle(DateTime date) {
   ];
   return '${months[date.month - 1]} ${date.year}';
 }
+
+DateTime _startOfWeek(DateTime date) {
+  final day = DateTime(date.year, date.month, date.day);
+  return day.subtract(Duration(days: day.weekday - 1));
+}
+
+String _weekLabel(DateTime start) {
+  final end = start.add(const Duration(days: 6));
+  return '${_shortMonth(start)} ${start.day} - ${_shortMonth(end)} ${end.day}, ${end.year}';
+}
+
+String _shortMonth(DateTime date) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return months[date.month - 1];
+}
+
+String _dateLabel(DateTime date) => '${_shortMonth(date)} ${date.day}, ${date.year}';
